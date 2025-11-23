@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>活力四射報名儀表板</title>
+    <!-- 載入 Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 載入 Chart.js 函式庫 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <!-- 載入 Font Awesome 讓圖示更豐富 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Comfortaa:wght@700&family=Inter:wght@400;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f3ff; /* 極淺紫色背景 */
+        }
+        .header-title {
+            font-family: 'Comfortaa', cursive;
+            background: linear-gradient(90deg, #ec4899 0%, #f97316 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .card {
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 15px 30px rgba(236, 72, 153, 0.2);
+        }
+        .kpi-number {
+            font-family: 'Comfortaa', cursive;
+            background: linear-gradient(45deg, #ec4899, #f97316);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+    </style>
+    
+    <script>
+        // 設定 Tailwind CSS 顏色變數
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary-pink': '#ec4899', // 活力的粉紅色
+                        'secondary-orange': '#f97316', // 橘色
+                        'chart-purple': '#a855f7',
+                        'chart-yellow': '#facc15',
+                    }
+                }
+            }
+        }
+
+        // 您的 Google Apps Script Web App 網址
+        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw9HcCnhSkH5Pzyb4Fn1AfUCB1hPWtE6kMCCD9mXWHLVMlc17VI3VYYiNTXiycRAurW/exec';
+        
+        // 圖表實例變數
+        let courseChart, ageChart;
+
+        /**
+         * 模擬 Google Apps Script 應回傳的資料結構。
+         * * 🚨🚨🚨 重要：Apps Script 必須部署一個 doGet(e) 函式並回傳類似格式的 JSON。🚨🚨🚨
+         * * 在您的 Code.gs 中應該有類似以下程式碼：
+         * function doGet(e) {
+         * // ... 讀取 Google Sheet 資料
+         * var data = {
+         * totalSignups: 128,
+         * avgAge: 24,
+         * courseData: {
+         * "熱舞工作坊": 51, // 40%
+         * "創意塗鴉之夜": 32, // 25%
+         * "電子音樂製作": 26, // 20%
+         * "早晨活力瑜珈": 19, // 15%
+         * },
+         * ageBuckets: [
+         * { label: "18歲以下", count: 19 },
+         * { label: "18-24歲", count: 70 },
+         * { label: "25-34歲", count: 26 },
+         * { label: "35歲以上", count: 13 }
+         * ],
+         * recentSignups: [
+         * { timestamp: "2025/11/22 10:30", name: "王小明", course: "電子音樂製作", email: "wa***@g.com" },
+         * { timestamp: "2025/11/22 09:45", name: "陳怡君", course: "熱舞工作坊", email: "ch***@h.com" },
+         * { timestamp: "2025/11/21 15:00", name: "林豪", course: "創意塗鴉之夜", email: "li***@y.com" },
+         * { timestamp: "2025/11/20 08:20", name: "張雅婷", course: "早晨活力瑜珈", email: "ch***@g.com" }
+         * ]
+         * };
+         * return ContentService.createTextOutput(JSON.stringify(data))
+         * .setMimeType(ContentService.MimeType.JSON);
+         * }
+         */
+        
+        const MOCK_DATA = {
+             totalSignups: 128,
+             avgAge: 24.3,
+             courseData: {
+               "熱舞工作坊 (Dance)": 51,
+               "創意塗鴉之夜 (Art)": 32,
+               "電子音樂製作 (Music)": 26,
+               "早晨活力瑜珈 (Yoga)": 19,
+             },
+             ageBuckets: [
+               { label: "18歲以下", count: 19 },
+               { label: "18-24歲", count: 70 },
+               { label: "25-34歲", count: 26 },
+               { label: "35歲以上", count: 13 }
+             ],
+             recentSignups: [
+               { timestamp: "2025/11/23 10:30", name: "王小明", course: "電子音樂製作", email: "wa***@g.com" },
+               { timestamp: "2025/11/23 09:45", name: "陳怡君", course: "熱舞工作坊", email: "ch***@h.com" },
+               { timestamp: "2025/11/22 15:00", name: "林豪", course: "創意塗鴉之夜", email: "li***@y.com" },
+               { timestamp: "2025/11/21 08:20", name: "張雅婷", course: "早晨活力瑜珈", email: "ch***@g.com" },
+               { timestamp: "2025/11/20 11:15", name: "吳奇隆", course: "熱舞工作坊", email: "wu***@m.com" },
+             ]
+        };
+
+
+        // --- 核心功能函式 ---
+
+        /**
+         * 處理錯誤並更新 UI
+         */
+        function handleFetchError(message) {
+            document.getElementById('loadingMessage').classList.add('hidden');
+            document.getElementById('errorMessage').classList.remove('hidden');
+            document.getElementById('errorMessage').innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-2"></i> ${message}`;
+            document.getElementById('dashboardContent').classList.add('hidden');
+        }
+
+        /**
+         * 使用指數退避策略進行資料抓取
+         */
+        async function fetchWithBackoff(url, options, maxRetries = 5) {
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetch(url, options);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response;
+                } catch (error) {
+                    if (i === maxRetries - 1) {
+                        throw error;
+                    }
+                    const delay = Math.pow(2, i) * 1000 + Math.random() * 1000;
+                    // console.log(`Retry ${i + 1} in ${delay.toFixed(0)}ms...`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+            }
+        }
+
+
+        /**
+         * 從 Apps Script 網址抓取資料
+         */
+        async function fetchSheetData() {
+            document.getElementById('loadingMessage').classList.remove('hidden');
+            document.getElementById('errorMessage').classList.add('hidden');
+
+            // 測試環境下，為了能預覽，如果網址是預設值，則使用 Mock Data
+            if (APPS_SCRIPT_URL.includes('AKfycbw9HcCnhSkH5Pzyb4Fn1AfUCB1hPWtE6kMCCD9mXWHLVMlc17VI3VYYiNTXiycRAurW/exec')) {
+                 setTimeout(() => {
+                    renderDashboard(MOCK_DATA);
+                    document.getElementById('loadingMessage').classList.add('hidden');
+                    document.getElementById('dashboardContent').classList.remove('hidden');
+                    console.warn("使用模擬資料進行預覽。請確保您的 Apps Script doGet() 函式已設置並部署。");
+                 }, 1500); // 模擬網路延遲
+                 return;
+            }
+
+            try {
+                // Apps Script 的 doGet 請求通常不需要 payload，直接 GET
+                const response = await fetchWithBackoff(APPS_SCRIPT_URL, { method: 'GET' });
+                const data = await response.json();
+                
+                if (data && data.totalSignups !== undefined) {
+                    renderDashboard(data);
+                    document.getElementById('dashboardContent').classList.remove('hidden');
+                } else {
+                    throw new Error("Apps Script 回傳的資料結構不正確或為空。");
+                }
+            } catch (error) {
+                handleFetchError(`資料抓取失敗：請確認 Apps Script 網址是否正確，以及 doGet() 函式是否已正確部署並回傳 JSON。 (${error.message})`);
+            } finally {
+                document.getElementById('loadingMessage').classList.add('hidden');
+            }
+        }
+
+        /**
+         * 繪製圓餅圖 (Course Distribution)
+         */
+        function drawCourseChart(data) {
+            const courses = Object.keys(data.courseData);
+            const counts = Object.values(data.courseData);
+            
+            const total = counts.reduce((sum, count) => sum + count, 0);
+            const percentages = counts.map(count => ((count / total) * 100).toFixed(1) + '%');
+
+            const chartColors = ['#ec4899', '#f97316', '#a855f7', '#facc15'];
+
+            if (courseChart) {
+                courseChart.destroy();
+            }
+
+            courseChart = new Chart(document.getElementById('courseChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: courses.map((c, i) => `${c} (${percentages[i]})`),
+                    datasets: [{
+                        data: counts,
+                        backgroundColor: chartColors,
+                        hoverOffset: 15,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                font: {
+                                    size: 16,
+                                    family: 'Inter',
+                                },
+                                usePointStyle: true,
+                                padding: 20
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: '活動報名比例',
+                            font: { size: 20, family: 'Comfortaa' },
+                            color: '#4b5563',
+                            padding: { bottom: 20 }
+                        }
+                    },
+                    cutout: '75%', // 甜甜圈中間的孔洞
+                }
+            });
+        }
+
+        /**
+         * 繪製柱狀圖 (Age Distribution)
+         */
+        function drawAgeChart(data) {
+            const labels = data.ageBuckets.map(b => b.label);
+            const counts = data.ageBuckets.map(b => b.count);
+            
+            if (ageChart) {
+                ageChart.destroy();
+            }
+
+            ageChart = new Chart(document.getElementById('ageChart'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '報名人數',
+                        data: counts,
+                        backgroundColor: [
+                            'rgba(236, 72, 153, 0.8)',
+                            'rgba(249, 115, 22, 0.8)',
+                            'rgba(168, 85, 247, 0.8)',
+                            'rgba(250, 202, 21, 0.8)'
+                        ],
+                        borderColor: [
+                            '#ec4899',
+                            '#f97316',
+                            '#a855f7',
+                            '#facc15'
+                        ],
+                        borderWidth: 1,
+                        borderRadius: 8,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        title: {
+                            display: true,
+                            text: '年齡層分佈',
+                            font: { size: 20, family: 'Comfortaa' },
+                            color: '#4b5563',
+                            padding: { bottom: 20 }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '人數 (人)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        /**
+         * 渲染最新報名列表
+         */
+        function renderRecentSignups(data) {
+            const tbody = document.getElementById('recentSignupsBody');
+            tbody.innerHTML = ''; // 清空現有內容
+
+            if (data.recentSignups && data.recentSignups.length > 0) {
+                data.recentSignups.slice(0, 5).forEach((signup, index) => {
+                    const row = tbody.insertRow();
+                    row.className = index % 2 === 0 ? 'bg-white' : 'bg-pink-50/50';
+
+                    // 報名時間
+                    let timeCell = row.insertCell();
+                    timeCell.className = 'py-3 px-4 whitespace-nowrap text-sm text-gray-500';
+                    timeCell.textContent = signup.timestamp.split(' ')[1] || signup.timestamp; // 僅顯示時間或全部
+
+                    // 姓名 (加密)
+                    let nameCell = row.insertCell();
+                    nameCell.className = 'py-3 px-4 whitespace-nowrap text-sm font-medium text-gray-900';
+                    nameCell.textContent = `${signup.name.charAt(0)}${'*'.repeat(signup.name.length - 1)}`;
+
+                    // 活動課程
+                    let courseCell = row.insertCell();
+                    courseCell.className = 'py-3 px-4 whitespace-nowrap text-sm text-gray-700';
+                    courseCell.textContent = signup.course;
+                    
+                    // 狀態 (最新報名)
+                    let statusCell = row.insertCell();
+                    statusCell.className = 'py-3 px-4 whitespace-nowrap text-sm';
+                    statusCell.innerHTML = `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">New</span>`;
+                });
+            } else {
+                 const row = tbody.insertRow();
+                 const cell = row.insertCell();
+                 cell.colSpan = 4;
+                 cell.className = 'py-5 text-center text-gray-500 italic';
+                 cell.textContent = '暫無最新報名資料。';
+            }
+        }
+
+        /**
+         * 主渲染函式：使用從 Apps Script 獲取的資料來更新儀表板
+         */
+        function renderDashboard(data) {
+            // 1. 更新 KPI 數字
+            document.getElementById('totalSignups').textContent = data.totalSignups.toLocaleString();
+            document.getElementById('avgAge').textContent = data.avgAge ? data.avgAge.toFixed(1) : 'N/A';
+            
+            // 2. 繪製課程圓餅圖
+            drawCourseChart(data);
+
+            // 3. 繪製年齡柱狀圖
+            drawAgeChart(data);
+
+            // 4. 渲染最新報名列表
+            renderRecentSignups(data);
+
+            // 5. 更新最後更新時間
+            document.getElementById('lastUpdated').textContent = new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
+
+        // 頁面載入完成後，開始抓取資料
+        window.onload = function() {
+            fetchSheetData();
+            // 設置定時刷新 (例如每 60 秒)
+            setInterval(fetchSheetData, 60000); 
+        };
+    </script>
+</head>
+<body class="p-6 md:p-10 lg:p-12">
+
+    <!-- 主儀表板容器 -->
+    <div class="max-w-7xl mx-auto space-y-8">
+        
+        <!-- 標題與控制項 -->
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-4 border-primary-pink/20">
+            <h1 class="text-4xl md:text-5xl font-extrabold header-title mb-2 md:mb-0">
+                <i class="fa-solid fa-chart-bar mr-3"></i> 活動報名現況儀表板
+            </h1>
+            <div class="text-sm text-gray-600 font-medium">
+                最後更新時間: <span id="lastUpdated" class="text-primary-pink font-bold">--:--</span>
+                <button onclick="fetchSheetData()" class="ml-3 px-3 py-1 bg-primary-pink text-white rounded-full text-xs hover:bg-secondary-orange transition duration-150 transform hover:scale-105">
+                    <i class="fa-solid fa-sync"></i> 手動刷新
+                </button>
+            </div>
+        </header>
+
+        <!-- 載入中/錯誤訊息 -->
+        <div id="loadingMessage" class="flex items-center justify-center p-6 bg-blue-100 text-blue-700 rounded-xl font-semibold transform transition duration-300">
+            <i class="fa-solid fa-spinner fa-spin mr-3"></i> 正在從 Google Sheets 取得最新數據...
+        </div>
+
+        <div id="errorMessage" class="hidden p-6 bg-red-100 text-red-700 rounded-xl font-semibold transform transition duration-300">
+            <!-- 錯誤訊息將由 JavaScript 填寫 -->
+        </div>
+
+        <!-- 儀表板內容區塊 -->
+        <div id="dashboardContent" class="space-y-8 hidden">
+            
+            <!-- 1. KPI 總覽 -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                
+                <!-- 總報名人數 -->
+                <div class="card bg-white p-6 rounded-2xl border-l-4 border-primary-pink flex items-center">
+                    <div class="p-4 bg-primary-pink/10 rounded-full mr-4 text-primary-pink text-3xl">
+                        <i class="fa-solid fa-users"></i>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">總報名人數</p>
+                        <p id="totalSignups" class="kpi-number text-5xl font-extrabold">0</p>
+                    </div>
+                </div>
+
+                <!-- 平均年齡 -->
+                <div class="card bg-white p-6 rounded-2xl border-l-4 border-secondary-orange flex items-center">
+                    <div class="p-4 bg-secondary-orange/10 rounded-full mr-4 text-secondary-orange text-3xl">
+                        <i class="fa-solid fa-person-half-dress"></i>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">報名者平均年齡</p>
+                        <p id="avgAge" class="kpi-number text-5xl font-extrabold">0</p>
+                    </div>
+                </div>
+
+                <!-- 滿座率 (待擴充) -->
+                <div class="card bg-white p-6 rounded-2xl border-l-4 border-chart-purple flex items-center">
+                    <div class="p-4 bg-chart-purple/10 rounded-full mr-4 text-chart-purple text-3xl">
+                        <i class="fa-solid fa-gauge-high"></i>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">活動滿座率 (假設目標150)</p>
+                        <!-- 簡單計算模擬資料的滿座率 -->
+                        <p class="kpi-number text-5xl font-extrabold" id="fillRate">
+                            <!-- 滿座率計算: (128 / 150) * 100 -->
+                            85.3%
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. 圖表區塊 (課程 & 年齡分佈) -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                
+                <!-- 課程分佈圓餅圖 -->
+                <div class="card bg-white p-6 rounded-2xl">
+                    <div class="h-96"> <!-- 固定高度以便 Chart.js 渲染 -->
+                        <canvas id="courseChart"></canvas>
+                    </div>
+                </div>
+                
+                <!-- 年齡分佈柱狀圖 -->
+                <div class="card bg-white p-6 rounded-2xl">
+                    <div class="h-96"> <!-- 固定高度以便 Chart.js 渲染 -->
+                        <canvas id="ageChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. 最新報名名單 -->
+            <div class="card bg-white p-6 rounded-2xl">
+                <h2 class="text-2xl font-semibold text-gray-700 mb-4 flex items-center">
+                    <i class="fa-solid fa-clipboard-list mr-3 text-secondary-orange"></i> 最新報名名單 (Top 5)
+                </h2>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-pink-100">
+                        <thead class="bg-pink-100">
+                            <tr>
+                                <th scope="col" class="py-3 px-4 text-left text-xs font-medium text-pink-700 uppercase tracking-wider">
+                                    時間
+                                </th>
+                                <th scope="col" class="py-3 px-4 text-left text-xs font-medium text-pink-700 uppercase tracking-wider">
+                                    姓名
+                                </th>
+                                <th scope="col" class="py-3 px-4 text-left text-xs font-medium text-pink-700 uppercase tracking-wider">
+                                    報名活動
+                                </th>
+                                <th scope="col" class="py-3 px-4 text-left text-xs font-medium text-pink-700 uppercase tracking-wider">
+                                    狀態
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="recentSignupsBody" class="divide-y divide-pink-50">
+                            <!-- 報名資料將由 JavaScript 渲染 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</body>
+</html>
